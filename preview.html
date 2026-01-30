@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI买菜助手</title>
+    <style>
+        /* iOS 风格配色方案 - 参考按钮参考图 */
+        :root {
+            /* 主色调 - 暖橙色 */
+            --primary: #fab571;
+            --primary-dark: #e89d4f;
+            /* 辅助色 - 绿色（成功/正向） */
+            --success: #34C759;
+            --success-dark: #248A3D;
+            /* 强调色 - 橙色（提醒/注意） */
+            --accent: #FF9500;
+            --accent-dark: #CC7700;
+            /* 特殊功能 - 紫色 */
+            --purple: #AF52DE;
+            --purple-dark: #8E3AAD;
+            /* 危险色 - 红色（删除/危险操作） */
+            --danger: #FF3B30;
+            --danger-dark: #CC2F26;
+            /* 中性色 */
+            --bg: #F9FAFB;
+            --card-bg: #FFFFFF;
+            --text-dark: #1C1C1E;
+            --text-muted: #8E8E93;
+            --border: #E5E5EA;
+            --shadow: rgba(0, 0, 0, 0.08);
+            --shadow-hover: rgba(16, 185, 129, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--text-dark);
+        }
+        .container { max-width: 440px; margin: 0 auto; padding: 16px; }
+
+        /* 头部背景图 */
+        .hero-banner {
+            width: calc(100% - 0px);
+            height: 100px;
+            margin: 0 auto 8px;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            box-shadow: 0 4px 20px rgba(250, 181, 113, 0.25);
+            padding: 0 20px;
+        }
+        .hero-banner::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            text-align: left;
+            width: 100%;
+        }
+        .hero-content h1 {
+            font-size: 1.3rem;
+            color: white;
+            font-weight: 700;
+        }
+        .hero-content p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            margin-bottom: 16px;
+            padding: 0;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 4px 20px var(--shadow);
+            margin-bottom: 12px;
+        }
+
+        /* 装饰图片 */
+        .decor-img {
+            width: 100%;
+            height: 80px;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .decor-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 表单项 */
+        .form-item { margin-bottom: 16px; }
+        .form-item:last-child { margin-bottom: 0; }
+        .label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+            display: block;
+        }
+        .label .required { color: var(--accent); margin-left: 2px; }
+        .label .hint { font-weight: 400; color: var(--text-muted); font-size: 0.8rem; margin-left: 4px; }
+
+        /* 加减选择器 */
+        .count-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .count-item {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 8px 4px;
+            text-align: center;
+        }
+        .count-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .count-controls { display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .count-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: var(--bg);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .count-btn:hover { background: var(--primary); color: white; }
+        .count-btn:active { background: var(--primary-dark); transform: scale(0.95); }
+        .count-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .count-value { font-weight: 600; font-size: 0.95rem; min-width: 20px; color: var(--accent); }
+
+        /* 美食类型单选 - 胶囊式 */
+        .type-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .type-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 6px 12px;
+            background: var(--bg);
+            border-radius: 16px;
+            font-size: 0.85rem;
+            color: var(--text-dark);
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .type-tag:hover { background: #f5f5f5; }
+        .type-tag.selected {
+            background: #be831f;
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(190, 131, 31, 0.3);
+        }
+        .type-tag input { display: none; }
+
+        /* 食材输入 */
+        .input-field {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            background: var(--bg);
+            transition: all 0.2s;
+            color: var(--text-dark);
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+        }
+        .input-field::placeholder { color: var(--text-muted); }
+
+        /* 提交按钮 */
+        .submit-btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 22px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(250, 181, 113, 0.3);
+        }
+        .submit-btn:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250, 181, 113, 0.4); }
+        .submit-btn:active { transform: scale(0.98); }
+
+        /* 错误提示 */
+        .error-msg {
+            color: var(--danger);
+            font-size: 0.8rem;
+            margin-top: 6px;
+            display: none;
+        }
+        .error-msg.show { display: block; }
+
+        /* 数量选项区域 */
+        .qty-section {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+        }
+        .qty-section.show { display: block; }
+        .qty-section + .form-item { margin-top: 16px; }
+        .form-item + .qty-section { margin-top: 16px; }
+        .qty-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+            display: block;
+        }
+        .qty-title .required { color: var(--danger); margin-left: 2px; }
+        .qty-placeholder {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            padding: 20px;
+            background: var(--bg);
+            border-radius: 12px;
+        }
+
+        /* 结果卡片 */
+        .result-card { display: none; }
+        .result-card.show { display: block; }
+        .result-title {
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            text-align: center;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        .result-group { margin-bottom: 24px; }
+        .result-group-title {
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        .recipe-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .recipe-card:hover {
+            box-shadow: 0 4px 20px rgba(203, 172, 222, 0.25);
+            transform: translateY(-2px);
+        }
+        .recipe-info { flex: 1; min-width: 0; }
+        .recipe-img-placeholder {
+            width: 70px;
+            height: 70px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .recipe-img-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .recipe-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .recipe-name { font-size: 0.85rem; font-weight: 600; color: var(--text-dark); }
+        .recipe-tag {
+            background: var(--bg);
+            color: var(--primary-dark);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+        }
+        .recipe-meta { font-size: 0.7rem; color: var(--text-muted); display: flex; gap: 10px; }
+        .recipe-price {
+            font-size: 0.8rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-top: 6px;
+        }
+        .add-menu-btn {
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .add-menu-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .add-menu-btn.added {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .add-menu-btn.added:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        /* 我的菜单 */
+        .my-menu-section {
+            background: var(--bg);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .my-menu-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .my-menu-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 2px;
+        }
+        .my-menu-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .my-menu-item {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            position: relative;
+        }
+        .my-menu-item-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+        }
+        .my-menu-item-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .my-menu-item-remove {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 20px;
+            height: 20px;
+            background: var(--bg);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .my-menu-item-remove:hover {
+            background: var(--accent);
+            color: white;
+        }
+        .my-menu-empty {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            padding: 20px;
+        }
+
+        /* 警告提示 */
+        .warning-msg {
+            background: rgba(249, 115, 22, 0.1);
+            color: var(--accent);
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* 详情弹窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); z-index: 1000; padding: 20px; }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            padding: 24px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: var(--bg);
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-close:hover { background: var(--border); }
+        .modal-section { margin-bottom: 18px; }
+        .modal-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: var(--text-dark);
+        }
+        .modal-row.total {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+        .modal-step {
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-dark);
+            line-height: 1.5;
+        }
+        .step-num {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .modal h2 { color: var(--text-dark); font-size: 1.25rem; margin-bottom: 6px; font-weight: 600; }
+        .modal .info-row { display: flex; gap: 14px; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+
+        /* 购菜清单 */
+        .shop-list {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .shop-item:last-child { border-bottom: none; }
+        .shop-name { font-size: 0.9rem; color: var(--text-dark); font-weight: 500; }
+        .shop-amount { font-size: 0.85rem; color: var(--text-muted); margin-left: auto; margin-right: 12px; }
+        .shop-price { font-size: 0.9rem; color: var(--accent); font-weight: 600; min-width: 50px; text-align: right; }
+
+        /* 调料清单 */
+        .seasoning-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .seasoning-tag {
+            background: var(--bg);
+            color: var(--text-dark);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        /* 预估总金额 */
+        .total-amount {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            color: var(--text-dark);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 12px auto;
+        }
+        .total-amount span {
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin-left: 6px;
+        }
+
+        /* 确认弹窗 */
+        .confirm-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .confirm-modal.show { display: flex; }
+        .confirm-content {
+            background: var(--cream);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 320px;
+            width: 90%;
+            text-align: center;
+        }
+        .confirm-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+        }
+        .confirm-msg {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .confirm-btns {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* 页面切换 */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* 菜单页面顶部栏 */
+        .menu-header {
+            width: calc(100% - 0px);
+            height: 80px;
+            margin: 0 auto 12px;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: white;
+            box-shadow: 0 4px 20px var(--shadow);
+            padding: 0 16px;
+            gap: 8px;
+        }
+        .back-btn {
+            background: var(--bg);
+            border: none;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .back-btn:hover { background: var(--border); }
+        .menu-title {
+            flex: 1;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            text-align: center;
+        }
+
+        /* 换一换按钮 */
+        .refresh-btn {
+            background: #8E8E93;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .refresh-btn:hover { filter: brightness(1.15); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+        .refresh-btn:active { transform: scale(0.95); }
+
+        /* 底部我的菜单入口 */
+        .my-menu-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 14px 32px;
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(250, 181, 113, 0.35);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            z-index: 100;
+            transition: all 0.2s;
+            max-width: 400px;
+            width: calc(100% - 48px);
+        }
+        .my-menu-bar:hover { transform: translateX(-50%) scale(1.02); }
+        .my-menu-bar svg { width: 20px; height: 20px; }
+
+        /* 我的菜单页面 - 底部弹出半屏 */
+        .my-menu-page {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            background: white;
+            border-radius: 20px 20px 0 0;
+            max-height: 75vh;
+            width: 100%;
+            max-width: 440px;
+            z-index: 500;
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .my-menu-page.show { transform: translateX(-50%) translateY(0); }
+        .my-menu-page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .close-my-menu-btn {
+            background: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-dark);
+            cursor: pointer;
+        }
+        .close-my-menu-btn:hover { background: var(--border); }
+        .my-menu-page-title { flex: 1; font-size: 1.1rem; font-weight: 600; color: var(--text-dark); }
+        .my-menu-page-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        /* 换成它按钮 */
+        .replace-btn {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .replace-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* 换菜弹窗 */
+        .swap-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 440px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 600;
+            align-items: center;
+            justify-content: center;
+        }
+        .swap-modal.show { display: flex; }
+        .swap-content {
+            background: white;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 360px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        .swap-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .swap-title { font-size: 1.1rem; font-weight: 600; color: var(--text-dark); }
+        .swap-close {
+            background: var(--bg);
+            border: none;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 50%;
+        }
+        .swap-close:hover { background: var(--border); color: var(--text-dark); }
+        .swap-body { padding: 20px; }
+        .swap-tip {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            text-align: center;
+            background: var(--bg);
+            padding: 10px;
+            border-radius: 12px;
+        }
+        .swap-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .swap-item:hover { background: var(--bg); border-color: var(--primary); }
+        .swap-item.selected {
+            background: rgba(255, 149, 0, 0.1);
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.2);
+        }
+        .swap-item-name { font-size: 0.95rem; font-weight: 600; color: var(--text-dark); }
+        .swap-item-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        .swap-btns {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px 20px;
+        }
+        .swap-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 22px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .swap-btn.cancel {
+            background: var(--bg);
+            border: none;
+            color: var(--text-dark);
+        }
+        .swap-btn.cancel:hover { background: var(--border); }
+        .swap-btn.confirm {
+            background: linear-gradient(135deg, #be831f 0%, #a7731b 100%);
+            border: none;
+            color: white;
+            box-shadow: 0 4px 12px rgba(190, 131, 31, 0.3);
+        }
+        .swap-btn.confirm:hover { opacity: 0.9; transform: translateY(-1px); }
+        .swap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* 统一按钮样式 */
+        .menu-action-btn {
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        /* 已加入状态 - 橙色对勾 */
+        .menu-action-btn.added {
+            background: var(--accent);
+            color: white;
+            font-size: 0.6rem;
+        }
+        /* 加号状态 */
+        .menu-action-btn:not(.added):not(.replace) {
+            background: white;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            font-size: 0.85rem;
+        }
+        .menu-action-btn:not(.added):not(.replace):hover {
+            background: var(--accent);
+            color: white;
+        }
+        /* 换成它状态 */
+        .menu-action-btn.replace {
+            background: rgba(255, 149, 0, 0.15);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            width: auto;
+            padding: 2px 8px;
+            font-size: 0.65rem;
+        }
+        .menu-action-btn.replace:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .my-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 440px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 499;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        .my-menu-overlay.show { opacity: 1; visibility: visible; }
+
+        /* 统一页面宽度 */
+        .page-wrapper {
+            max-width: 440px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* 备菜清单在详情页的样式 */
+        .detail-shop-list {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .detail-shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .detail-shop-item:last-child { border-bottom: none; }
+        .detail-shop-name { font-size: 0.9rem; color: var(--text-dark); font-weight: 500; }
+        .detail-shop-amount { font-size: 0.85rem; color: var(--text-muted); margin-left: auto; margin-right: 12px; }
+        .detail-shop-price { font-size: 0.9rem; color: var(--accent); font-weight: 600; min-width: 50px; text-align: right; }
+
+        /* 详情页调料标签 */
+        .detail-seasoning-tag {
+            background: var(--bg);
+            color: var(--text-dark);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        /* 防止底部被遮挡 */
+        .container { padding: 16px; padding-bottom: 90px; }
+
+        /* 我的菜单按类型分组显示 */
+        .my-menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .my-menu-grid-item {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            position: relative;
+            text-align: center;
+        }
+        .my-menu-item-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+        }
+        .my-menu-item-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .my-menu-item-remove {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 22px;
+            height: 22px;
+            background: #FF3B30;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .my-menu-item-remove:hover {
+            transform: scale(1.1);
+        }
+
+        /* 预估总金额文本样式 */
+        .my-menu-total {
+            background: var(--bg);
+            color: var(--text-dark);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .my-menu-total span {
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        /* 底部按钮区域 */
+        .my-menu-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            margin-top: auto;
+        }
+        .generate-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border: none;
+            border-radius: 22px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(250, 181, 113, 0.3);
+        }
+        .generate-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* 第四页：备菜清单页面 */
+        .prep-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 440px;
+            height: 100%;
+            background: white;
+            z-index: 600;
+            flex-direction: column;
+        }
+        .prep-page.show { display: flex; }
+        .prep-header {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .prep-title {
+            flex: 1;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            text-align: center;
+        }
+        .prep-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .prep-shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .prep-shop-name { font-size: 0.9rem; color: var(--text-dark); }
+        .prep-shop-right { display: flex; align-items: center; gap: 12px; }
+        .prep-shop-amount { font-size: 0.85rem; color: var(--text-muted); }
+        .prep-shop-price { font-size: 0.9rem; color: var(--accent); font-weight: 600; }
+        .prep-seasoning-tag {
+            display: inline-block;
+            background: var(--bg);
+            color: var(--text-dark);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 4px;
+        }
+        .prep-total {
+            padding: 16px;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: flex;
+            justify-content: space-between;
+        }
+        .prep-total span {
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 第一页：参数输入 -->
+        <div class="page active" id="inputPage">
+            <div class="hero-banner">
+                <div class="hero-content">
+                    <h1>AI菜单助手🛒</h1>
+                    <p>智能推荐今日菜单</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <!-- 装饰图片 -->
+                <div class="decor-img">
+                    <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=120&fit=crop" alt="美食">
+                </div>
+                <div class="form-item">
+                    <label class="label">用餐人数</label>
+                    <div class="count-grid">
+                        <div class="count-item">
+                            <div class="count-controls">
+                                <button class="count-btn" onclick="changePeople(-1)">-</button>
+                                <span class="count-value" id="peopleVal">1</span>
+                                <button class="count-btn" onclick="changePeople(1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-item">
+                    <label class="label">美食类型</label>
+                    <div class="type-tags" id="typeTags">
+                        <span class="type-tag" onmousedown="selectType('中式炒菜', event)">🥢 中餐</span>
+                        <span class="type-tag" onmousedown="selectType('火锅', event)">🥘 火锅</span>
+                        <span class="type-tag" onmousedown="selectType('烧烤', event)">🍢 烧烤</span>
+                        <span class="type-tag" onmousedown="selectType('西餐', event)">🥗 西餐</span>
+                        <span class="type-tag" onmousedown="selectType('东南亚菜', event)">🌴 东南亚</span>
+                    </div>
+                    <div class="error-msg" id="typeError">请选择美食类型</div>
+                </div>
+
+                <!-- 数量选项：统一区域 -->
+            <div class="qty-section show" id="qtySection">
+                <div class="qty-title">数量<span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;margin-left:4px;">（自动推荐，也可以修改）</span></div>
+                <div id="qtyPlaceholder" class="qty-placeholder">请先选择美食类型</div>
+                <!-- 中式炒菜/东南亚菜 -->
+                <div class="count-grid" id="qtyStir" style="display:none;">
+                    <div class="count-item">
+                        <div class="count-label">凉菜</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('cold', -1)">-</button>
+                            <span class="count-value" id="coldVal">0</span>
+                            <button class="count-btn" onclick="changeQty('cold', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">热菜</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('hot', -1)">-</button>
+                            <span class="count-value" id="hotVal">2</span>
+                            <button class="count-btn" onclick="changeQty('hot', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">汤类</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('soup', -1)">-</button>
+                            <span class="count-value" id="soupVal">0</span>
+                            <button class="count-btn" onclick="changeQty('soup', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">主食</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('staple', -1)">-</button>
+                            <span class="count-value" id="stapleVal">1</span>
+                            <button class="count-btn" onclick="changeQty('staple', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 火锅/烧烤 -->
+                <div class="count-grid" id="qtyHotpot" style="display:none;">
+                    <div class="count-item">
+                        <div class="count-label">荤类</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('meat', -1)">-</button>
+                            <span class="count-value" id="meatVal">1</span>
+                            <button class="count-btn" onclick="changeQty('meat', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">素类</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('veg', -1)">-</button>
+                            <span class="count-value" id="vegVal">1</span>
+                            <button class="count-btn" onclick="changeQty('veg', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">主食</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('stapleH', -1)">-</button>
+                            <span class="count-value" id="stapleHVal">1</span>
+                            <button class="count-btn" onclick="changeQty('stapleH', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 西餐 -->
+                <div class="count-grid" id="qtyWestern" style="display:none;">
+                    <div class="count-item">
+                        <div class="count-label">前菜</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('appetizer', -1)">-</button>
+                            <span class="count-value" id="appetizerVal">0</span>
+                            <button class="count-btn" onclick="changeQty('appetizer', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">主菜</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('main', -1)">-</button>
+                            <span class="count-value" id="mainVal">1</span>
+                            <button class="count-btn" onclick="changeQty('main', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">小食</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('side', -1)">-</button>
+                            <span class="count-value" id="sideVal">0</span>
+                            <button class="count-btn" onclick="changeQty('side', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="count-item">
+                        <div class="count-label">甜点</div>
+                        <div class="count-controls">
+                            <button class="count-btn" onclick="changeQty('dessert', -1)">-</button>
+                            <span class="count-value" id="dessertVal">1</span>
+                            <button class="count-btn" onclick="changeQty('dessert', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-item">
+                <label class="label">现有食材🧺<span class="hint">（可选）</span></label>
+                <input type="text" class="input-field" id="ingredients" placeholder="多种食材用逗号分隔，如：西红柿，鸡蛋">
+            </div>
+
+            <div class="form-item" style="margin-top: 16px;">
+                <button class="submit-btn" onclick="goToMenuPage()">生成推荐菜单</button>
+            </div>
+        </div>
+        </div> <!-- 第一页结束 -->
+
+        <!-- 第二页：推荐菜单 -->
+        <div class="page" id="menuPage">
+            <div class="menu-header">
+                <button class="back-btn" onclick="goToInputPage()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <div class="menu-title">推荐菜单</div>
+                <button class="refresh-btn" style="background: #cbacde;" onclick="addAllToMenu()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    全部加入
+                </button>
+                <button class="refresh-btn" onclick="refreshMenu()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                    换一换
+                </button>
+            </div>
+            <div class="card result-card" id="resultCard">
+                <div id="resultContent"></div>
+            </div>
+        </div>
+
+        <!-- 我的菜单弹层 -->
+        <div class="my-menu-overlay" id="myMenuOverlay" onclick="closeMyMenuPage()"></div>
+        <div class="my-menu-page" id="myMenuPage">
+            <div class="my-menu-page-header">
+                <button class="close-my-menu-btn" onclick="closeMyMenuPage()">关闭</button>
+                <div class="my-menu-page-title">我的菜单</div>
+            </div>
+            <div class="my-menu-page-content" id="myMenuContent"></div>
+            <div class="my-menu-footer">
+                <button class="generate-btn" onclick="goToPrepPage()">生成备菜清单</button>
+            </div>
+        </div>
+
+        <!-- 第四页：备菜清单页面 -->
+        <div class="prep-page" id="prepPage">
+            <div class="prep-header">
+                <button class="close-my-menu-btn" onclick="closePrepPage()">返回</button>
+                <div class="prep-title">备菜清单</div>
+            </div>
+            <div class="prep-content" id="prepContent"></div>
+            <div class="prep-total" id="prepTotal"></div>
+        </div>
+
+        <!-- 底部悬浮的我的菜单入口 -->
+        <div class="my-menu-bar" id="myMenuBar" onclick="openMyMenuPage()" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span>我的菜单</span>
+            <span id="myMenuCount">(0)</span>
+        </div>
+
+    <div class="modal" id="detailModal">
+        <div class="modal-content" id="modalContent"></div>
+    </div>
+
+    <script>
+        // 智能推荐配置
+        const stirRec = {
+            '1': {cold:0, hot:2, soup:0, staple:1},
+            '2-3': {cold:1, hot:3, soup:1, staple:1},
+            '4-6': {cold:1, hot:5, soup:1, staple:1},
+            '6-8': {cold:2, hot:6, soup:1, staple:1},
+            '8-10': {cold:2, hot:8, soup:1, staple:1}
+        };
+        const hotpotRec = {
+            '1': {meat:1, veg:1, staple:0},
+            '2': {meat:2, veg:2, staple:1},
+            '3': {meat:3, veg:3, staple:1},
+            '4': {meat:4, veg:3, staple:1},
+            '5': {meat:5, veg:4, staple:1},
+            '6': {meat:6, veg:4, staple:2},
+            '7': {meat:7, veg:5, staple:2},
+            '8': {meat:8, veg:6, staple:2},
+            '9': {meat:9, veg:6, staple:3},
+            '10': {meat:10, veg:7, staple:3}
+        };
+        const westernRec = {
+            '1': {appetizer:0, main:1, side:0, dessert:1},
+            '2': {appetizer:1, main:2, side:0, dessert:1},
+            '3': {appetizer:1, main:3, side:1, dessert:1},
+            '4': {appetizer:2, main:4, side:1, dessert:2},
+            '5': {appetizer:2, main:5, side:1, dessert:2},
+            '6': {appetizer:2, main:6, side:2, dessert:2},
+            '7': {appetizer:3, main:7, side:2, dessert:3},
+            '8': {appetizer:3, main:8, side:2, dessert:3},
+            '9': {appetizer:3, main:9, side:3, dessert:3},
+            '10': {appetizer:4, main:10, side:3, dessert:4}
+        };
+
+        let peopleCount = 1;
+        let selectedType = null;
+        let stirCounts = {cold:0, hot:2, soup:0, staple:1};
+        let hotpotCounts = {meat:1, veg:1, stapleH:1};
+        let westernCounts = {appetizer:0, main:1, side:0, dessert:1};
+        window.myMenu = [];
+
+        // 换菜相关变量
+        let pendingSwapRecipe = null;
+        let pendingSwapTypeKey = null;
+        let selectedSwapIndex = -1;
+
+        function changePeople(delta) {
+            peopleCount = Math.max(1, Math.min(10, peopleCount + delta));
+            document.getElementById('peopleVal').textContent = peopleCount;
+            updateRec();
+        }
+
+        function selectType(type, e) {
+            if (!e) return;
+            selectedType = type;
+            document.querySelectorAll('.type-tag').forEach(t => t.classList.remove('selected'));
+            e.target.classList.add('selected');
+            document.getElementById('typeError').classList.remove('show');
+
+            // 隐藏所有数量选项和提示
+            document.getElementById('qtyPlaceholder').style.display = 'none';
+            document.getElementById('qtyStir').style.display = 'none';
+            document.getElementById('qtyHotpot').style.display = 'none';
+            document.getElementById('qtyWestern').style.display = 'none';
+
+            if (type === '中式炒菜' || type === '东南亚菜') {
+                document.getElementById('qtyStir').style.display = 'grid';
+                updateRec();
+            } else if (type === '火锅' || type === '烧烤') {
+                document.getElementById('qtyHotpot').style.display = 'grid';
+                updateRec();
+            } else if (type === '西餐') {
+                document.getElementById('qtyWestern').style.display = 'grid';
+                updateRec();
+            }
+        }
+
+        function updateRec() {
+            if (!selectedType) return;
+
+            if (selectedType === '中式炒菜' || selectedType === '东南亚菜') {
+                const r = peopleCount===1?'1':peopleCount<=3?'2-3':peopleCount<=6?'4-6':peopleCount<=8?'6-8':'8-10';
+                stirCounts = {
+                    cold: stirRec[r].cold,
+                    hot: stirRec[r].hot,
+                    soup: stirRec[r].soup,
+                    staple: stirRec[r].staple
+                };
+                ['cold','hot','soup','staple'].forEach(k => {
+                    document.getElementById(k+'Val').textContent = stirCounts[k];
+                });
+            } else if (selectedType === '火锅' || selectedType === '烧烤') {
+                const r = peopleCount.toString();
+                hotpotCounts = {
+                    meat: hotpotRec[r].meat,
+                    veg: hotpotRec[r].veg,
+                    stapleH: hotpotRec[r].staple
+                };
+                ['meat','veg','stapleH'].forEach(k => {
+                    document.getElementById(k+'Val').textContent = hotpotCounts[k];
+                });
+            } else if (selectedType === '西餐') {
+                const r = peopleCount.toString();
+                westernCounts = {
+                    appetizer: westernRec[r].appetizer,
+                    main: westernRec[r].main,
+                    side: westernRec[r].side,
+                    dessert: westernRec[r].dessert
+                };
+                ['appetizer','main','side','dessert'].forEach(k => {
+                    document.getElementById(k+'Val').textContent = westernCounts[k];
+                });
+            }
+        }
+
+        function changeQty(type, delta) {
+            if (selectedType === '中式炒菜' || selectedType === '东南亚菜') {
+                stirCounts[type] = Math.max(0, Math.min(10, stirCounts[type] + delta));
+                document.getElementById(type+'Val').textContent = stirCounts[type];
+            } else if (selectedType === '火锅' || selectedType === '烧烤') {
+                hotpotCounts[type] = Math.max(0, Math.min(10, hotpotCounts[type] + delta));
+                document.getElementById(type+'Val').textContent = hotpotCounts[type];
+            } else if (selectedType === '西餐') {
+                westernCounts[type] = Math.max(0, Math.min(10, westernCounts[type] + delta));
+                document.getElementById(type+'Val').textContent = westernCounts[type];
+            }
+        }
+
+        const recipes = {
+            '中式炒菜': {
+                cold:[{n:'凉拌黄瓜',d:'简单',t:'10分钟',i:[{n:'黄瓜',a:'2根',p:4},{n:'蒜泥',a:'适量',p:0.5},{n:'香油',a:'1勺',p:0.5}],s:['黄瓜拍碎','加蒜泥香油','拌匀']},{n:'皮蛋豆腐',d:'简单',t:'5分钟',i:[{n:'嫩豆腐',a:'1块',p:3},{n:'皮蛋',a:'2个',p:6}],s:['豆腐切块','皮蛋切丁','淋生抽香油']}],
+                hot:[{n:'西红柿炒蛋',d:'简单',t:'10分钟',i:[{n:'西红柿',a:'3个',p:5},{n:'鸡蛋',a:'3个',p:5},{n:'糖',a:'1小勺',p:0.3}],s:['西红柿切块','鸡蛋炒熟','混合翻炒']},{n:'青椒土豆丝',d:'简单',t:'15分钟',i:[{n:'土豆',a:'2个',p:4},{n:'青椒',a:'2个',p:3}],s:['土豆青椒切丝','快火翻炒','加醋盐']},{n:'麻婆豆腐',d:'中等',t:'20分钟',i:[{n:'嫩豆腐',a:'400g',p:6},{n:'牛肉末',a:'100g',p:12},{n:'豆瓣酱',a:'2勺',p:0.8}],s:['豆腐焯水','炒肉末豆瓣','下豆腐煮']},{n:'宫保鸡丁',d:'中等',t:'25分钟',i:[{n:'鸡胸肉',a:'300g',p:18},{n:'花生米',a:'50g',p:3},{n:'干辣椒',a:'适量',p:0.8}],s:['鸡丁腌制','炸花生米','快火翻炒']},{n:'红烧肉',d:'中等',t:'40分钟',i:[{n:'五花肉',a:'400g',p:35},{n:'冰糖',a:'适量',p:2},{n:'酱油',a:'适量',p:1}],s:['五花肉切块','炒糖色','加酱油炖煮']},{n:'糖醋排骨',d:'中等',t:'35分钟',i:[{n:'排骨',a:'500g',p:40},{n:'醋',a:'2勺',p:2},{n:'糖',a:'3勺',p:2}],s:['排骨焯水','调糖醋汁','排骨翻炒上色']},{n:'蒜蓉虾',d:'中等',t:'20分钟',i:[{n:'大虾',a:'300g',p:28},{n:'蒜',a:'1头',p:3}],s:['虾洗净','蒜蓉爆香','虾翻炒']}],
+                hotMeat:[{n:'宫保鸡丁',d:'中等',t:'25分钟',i:[{n:'鸡胸肉',a:'300g',p:18},{n:'花生米',a:'50g',p:3},{n:'干辣椒',a:'适量',p:0.8}],s:['鸡丁腌制','炸花生米','快火翻炒']},{n:'红烧肉',d:'中等',t:'40分钟',i:[{n:'五花肉',a:'400g',p:35},{n:'冰糖',a:'适量',p:2},{n:'酱油',a:'适量',p:1}],s:['五花肉切块','炒糖色','加酱油炖煮']},{n:'糖醋排骨',d:'中等',t:'35分钟',i:[{n:'排骨',a:'500g',p:40},{n:'醋',a:'2勺',p:2},{n:'糖',a:'3勺',p:2}],s:['排骨焯水','调糖醋汁','排骨翻炒上色']},{n:'蒜蓉虾',d:'中等',t:'20分钟',i:[{n:'大虾',a:'300g',p:28},{n:'蒜',a:'1头',p:3}],s:['虾洗净','蒜蓉爆香','虾翻炒']}],
+                soup:[{n:'紫菜蛋花汤',d:'简单',t:'10分钟',i:[{n:'紫菜',a:'适量',p:2},{n:'鸡蛋',a:'1个',p:1.5}],s:['紫菜洗净','水开下锅','淋蛋液']},{n:'番茄蛋汤',d:'简单',t:'10分钟',i:[{n:'番茄',a:'2个',p:4},{n:'鸡蛋',a:'2个',p:3}],s:['番茄切块','加水煮','淋蛋液']}],
+                staple:[{n:'蛋炒饭',d:'简单',t:'10分钟',i:[{n:'米饭',a:'1碗',p:2},{n:'鸡蛋',a:'2个',p:3}],s:['米饭捣散','热锅炒蛋','混合翻炒']},{n:'炒面条',d:'简单',t:'15分钟',i:[{n:'面条',a:'200g',p:4},{n:'鸡蛋',a:'2个',p:3}],s:['面条煮熟','配菜翻炒','混合炒匀']}]
+            },
+            '火锅': {
+                meat:[{n:'肥牛卷',d:'简单',t:'5分钟',i:[{n:'肥牛卷',a:'300g',p:35}],s:['下锅涮10秒','蘸料食用']},{n:'羊肉卷',d:'简单',t:'5分钟',i:[{n:'羊肉卷',a:'300g',p:30}],s:['下锅涮10秒','蘸料食用']},{n:'虾滑',d:'简单',t:'5分钟',i:[{n:'虾滑',a:'200g',p:25}],s:['下锅煮浮起','蘸料食用']},{n:'毛肚',d:'简单',t:'30秒',i:[{n:'毛肚',a:'200g',p:28}],s:['下锅涮15秒','蘸料食用']}],
+                veg:[{n:'茼蒿',d:'简单',t:'2分钟',i:[{n:'茼蒿',a:'1把',p:6}],s:['下锅涮熟','蘸料食用']},{n:'生菜',d:'简单',t:'2分钟',i:[{n:'生菜',a:'1颗',p:5}],s:['下锅涮熟','蘸料食用']},{n:'豆腐',d:'简单',t:'5分钟',i:[{n:'豆腐',a:'1块',p:3}],s:['下锅煮','蘸料食用']},{n:'土豆片',d:'简单',t:'3分钟',i:[{n:'土豆',a:'2个',p:4}],s:['下锅煮软','蘸料食用']},{n:'藕片',d:'简单',t:'3分钟',i:[{n:'莲藕',a:'1节',p:5}],s:['切片下锅','煮熟食用']}],
+                staple:[{n:'粉丝',d:'简单',t:'5分钟',i:[{n:'粉丝',a:'1把',p:3}],s:['下锅煮软','蘸料食用']},{n:'方便面',d:'简单',t:'5分钟',i:[{n:'方便面',a:'1袋',p:4}],s:['下锅煮','加蛋更佳']},{n:'年糕',d:'简单',t:'5分钟',i:[{n:'年糕',a:'200g',p:6}],s:['下锅煮软','蘸糖或盐']}]
+            },
+            '烧烤': {
+                meat:[{n:'羊肉串',d:'中等',t:'20分钟',i:[{n:'羊肉串',a:'10串',p:25}],s:['提前腌制','刷油烤制','撒孜然辣椒']},{n:'鸡翅',d:'中等',t:'25分钟',i:[{n:'鸡翅',a:'5个',p:15}],s:['划刀腌制','刷蜜烤制','两面金黄']},{n:'五花肉',d:'中等',t:'15分钟',i:[{n:'五花肉',a:'200g',p:18}],s:['切片腌制','烤至出油','卷生菜食用']},{n:'牛肉串',d:'中等',t:'20分钟',i:[{n:'牛肉串',a:'10串',p:28}],s:['提前腌制','快火烤制','撒芝麻']}],
+                veg:[{n:'茼蒿',d:'简单',t:'8分钟',i:[{n:'茼蒿',a:'1把',p:6}],s:['洗净串好','刷油快烤','撒孜然']},{n:'玉米',d:'简单',t:'15分钟',i:[{n:'玉米',a:'2根',p:6}],s:['刷油烤制','撒糖或盐','两面金黄']},{n:'土豆片',d:'简单',t:'10分钟',i:[{n:'土豆',a:'2个',p:4}],s:['切片刷油','烤至微焦','撒椒盐']},{n:'茄子',d:'简单',t:'15分钟',i:[{n:'茄子',a:'2根',p:5}],s:['对半切开','刷油烤制','撒蒜蓉']},{n:'韭菜',d:'简单',t:'8分钟',i:[{n:'韭菜',a:'1把',p:4}],s:['洗净串好','刷油快烤','撒孜然']},{n:'金针菇',d:'简单',t:'8分钟',i:[{n:'金针菇',a:'1把',p:5}],s:['洗净沥干','刷油烤制','撒椒盐']}],
+                staple:[{n:'馒头片',d:'简单',t:'8分钟',i:[{n:'馒头',a:'2个',p:4}],s:['切片刷油','烤至金黄','撒孜然']},{n:'年糕',d:'简单',t:'10分钟',i:[{n:'年糕',a:'200g',p:6}],s:['切片刷油','烤至鼓包','蘸糖']}]
+            },
+            '西餐': {
+                appetizer:[{n:'凯撒沙拉',d:'简单',t:'10分钟',i:[{n:'生菜',a:'1颗',p:6},{n:'面包丁',a:'50g',p:3},{n:'帕玛森奶酪',a:'30g',p:8}],s:['生菜洗净沥干','混合沙拉酱','撒上面包丁和奶酪']},{n:'蒜香面包',d:'简单',t:'10分钟',i:[{n:'法棍',a:'1根',p:6},{n:'黄油',a:'50g',p:4},{n:'蒜末',a:'适量',p:0.5}],s:['黄油软化加蒜末','法棍切片','涂抹蒜黄油烤至金黄']},{n:'番茄浓汤',d:'中等',t:'20分钟',i:[{n:'番茄',a:'4个',p:8},{n:'洋葱',a:'1个',p:2},{n:'鲜奶油',a:'100ml',p:8}],s:['番茄洋葱炒软','加水煮烂','搅拌成浓汤加奶油']}],
+                main:[{n:'煎牛排',d:'中等',t:'20分钟',i:[{n:'牛排',a:'200g',p:45},{n:'黄油',a:'20g',p:2}],s:['牛排退冰','两面煎制','静置5分钟']},{n:'蒜香三文鱼',d:'简单',t:'15分钟',i:[{n:'三文鱼',a:'200g',p:40},{n:'黄油',a:'20g',p:2},{n:'蒜',a:'2瓣',p:0.5}],s:['三文鱼吸干水','黄油煎制','挤柠檬汁']},{n:'红酒炖牛肉',d:'中等',t:'45分钟',i:[{n:'牛肉块',a:'400g',p:50},{n:'红酒',a:'200ml',p:20},{n:'胡萝卜',a:'2个',p:4}],s:['牛肉煎至表面','红酒炖煮1小时','加入胡萝卜土豆']}],
+                side:[{n:'薯条',d:'简单',t:'15分钟',i:[{n:'土豆',a:'3个',p:5},{n:'盐',a:'适量',p:0.2}],s:['土豆切条','油炸至金黄','撒盐调味']},{n:'焗烤土豆',d:'中等',t:'30分钟',i:[{n:'土豆',a:'3个',p:6},{n:'牛奶',a:'100ml',p:2},{n:'马苏里拉奶酪',a:'100g',p:12}],s:['土豆煮熟压泥','加牛奶黄油','撒奶酪烤至金黄']}],
+                dessert:[{n:'提拉米苏',d:'中等',t:'30分钟',i:[{n:'马斯卡彭芝士',a:'250g',p:25},{n:'手指饼干',a:'200g',p:10},{n:'浓缩咖啡',a:'100ml',p:5}],s:['咖啡冷却','饼干蘸咖啡','芝士层叠组装']},{n:'焦糖布丁',d:'简单',t:'20分钟',i:[{n:'淡奶油',a:'200ml',p:8},{n:'蛋黄',a:'3个',p:3},{n:'糖',a:'50g',p:2}],s:['奶油加热','混合蛋黄','焦糖淋面冷藏']}]
+            },
+            '东南亚菜': {
+                cold:[{n:'青木瓜沙拉',d:'中等',t:'20分钟',i:[{n:'青木瓜',a:'1个',p:8},{n:'番茄',a:'2个',p:4},{n:'花生',a:'50g',p:5}],s:['木瓜切丝','番茄切块','拌匀调味']},{n:'泰式牛肉沙拉',d:'中等',t:'25分钟',i:[{n:'牛肉',a:'150g',p:25},{n:'洋葱',a:'1个',p:2},{n:'薄荷',a:'适量',p:3}],s:['牛肉煮熟切薄片','洋葱切丝','拌匀调味']}],
+                hot:[{n:'泰式绿咖喱鸡',d:'中等',t:'25分钟',i:[{n:'鸡腿肉',a:'300g',p:18},{n:'椰浆',a:'1罐',p:12},{n:'绿咖喱酱',a:'2勺',p:10}],s:['鸡肉切块','椰浆煮开','加咖喱炖煮']},{n:'泰式炒河粉',d:'中等',t:'20分钟',i:[{n:'河粉',a:'200g',p:6},{n:'虾仁',a:'100g',p:15},{n:'豆芽',a:'100g',p:3}],s:['河粉泡软','虾仁炒熟','混合翻炒']},{n:'越南牛肉河粉',d:'中等',t:'30分钟',i:[{n:'河粉',a:'200g',p:6},{n:'牛肉',a:'150g',p:25},{n:'豆芽',a:'100g',p:3}],s:['牛肉切片','骨汤煮粉','摆盘加汤']}],
+                soup:[{n:'泰式冬阴功汤',d:'中等',t:'25分钟',i:[{n:'虾',a:'200g',p:20},{n:'冬阴功酱',a:'2勺',p:8},{n:'椰浆',a:'100ml',p:6}],s:['虾洗净','水开加酱','下虾煮熟']},{n:'越式牛肉汤',d:'中等',t:'30分钟',i:[{n:'牛肉',a:'200g',p:28},{n:'河粉',a:'200g',p:6}],s:['牛肉煮汤','河粉煮熟','装碗加汤']}],
+                staple:[{n:'泰式菠萝炒饭',d:'中等',t:'20分钟',i:[{n:'菠萝',a:'1个',p:8},{n:'米饭',a:'1碗',p:2},{n:'虾仁',a:'100g',p:15}],s:['菠萝挖肉','米饭炒香','混合翻炒']},{n:'芒果糯米饭',d:'简单',t:'15分钟',i:[{n:'芒果',a:'1个',p:10},{n:'糯米',a:'200g',p:4},{n:'椰浆',a:'100ml',p:6}],s:['糯米煮熟','芒果切块','摆盘淋椰浆']}]
+            }
+        };
+
+        function generateMenu() {
+            if (!selectedType) { document.getElementById('typeError').classList.add('show'); return; }
+
+            window.menuGroups = {};
+            const usedRecipeNames = new Set(); // 用于去重，记录已选中的菜名
+
+            const ingStr = document.getElementById('ingredients').value;
+            const ingList = ingStr ? ingStr.split(',').map(s => s.trim()).filter(s => s) : [];
+            const data = recipes[selectedType];
+            let result = [];
+
+            // 辅助函数：从池子中选择指定数量的菜，强制包含匹配现有食材的菜
+            let noMatchWarning = '';
+            function selectRecipes(pool, need, catKey, catName) {
+                if (need <= 0 || !pool.length) return [];
+
+                // 过滤掉已经选过的菜
+                const availablePool = pool.filter(r => !usedRecipeNames.has(r.n));
+                if (availablePool.length === 0) return [];
+
+                // 找出匹配现有食材的菜
+                const matched = availablePool.filter(r => ingList.some(ing => r.i.some(i => i.n.includes(ing))));
+                const other = availablePool.filter(r => !matched.includes(r));
+
+                // 如果输入了食材但没有匹配的菜，记录警告
+                if (ingList.length > 0 && matched.length === 0) {
+                    noMatchWarning = `未在${catName}中找到包含 [${ingList.join(', ')}] 的菜品，已推荐其他菜品`;
+                }
+
+                // 如果池子里的菜不够，直接返回所有
+                if (availablePool.length <= need) {
+                    availablePool.forEach(r => usedRecipeNames.add(r.n));
+                    return availablePool.map(r => ({...r, cat: catKey, catName}));
+                }
+
+                const selected = [];
+                const matchedShuffled = matched.sort(() => 0.5 - Math.random());
+                const otherShuffled = other.sort(() => 0.5 - Math.random());
+
+                // 1. 必须包含所有匹配现有食材的菜
+                selected.push(...matchedShuffled);
+                matched.forEach(r => usedRecipeNames.add(r.n));
+
+                // 2. 用其他菜补足到 need 数量
+                if (selected.length < need) {
+                    for (let i = 0; i < otherShuffled.length && selected.length < need; i++) {
+                        selected.push(otherShuffled[i]);
+                        usedRecipeNames.add(otherShuffled[i].n);
+                    }
+                }
+
+                // 3. 如果匹配的数量超过 need，随机截取
+                if (selected.length > need) {
+                    const shuffled = selected.sort(() => 0.5 - Math.random());
+                    return shuffled.slice(0, need).map(r => ({...r, cat: catKey, catName}));
+                }
+
+                return selected.map(r => ({...r, cat: catKey, catName}));
+            }
+
+            if (selectedType === '中式炒菜') {
+                const counts = stirCounts;
+                // 凉菜
+                result.push(...selectRecipes(data.cold, counts.cold, 'cold', '凉菜'));
+
+                // 热菜特殊逻辑：1份优先大荤，>=2份荤素搭配
+                if (counts.hot > 0) {
+                    const hotMeat = data.hotMeat || [];
+                    const hotVeg = data.hot || [];
+
+                    if (counts.hot === 1) {
+                        // 只推荐大荤
+                        result.push(...selectRecipes(hotMeat, 1, 'hot', '热菜'));
+                    } else {
+                        // 荤素搭配
+                        const meatCount = Math.ceil(counts.hot / 2);
+                        const vegCount = counts.hot - meatCount;
+                        result.push(...selectRecipes(hotMeat, meatCount, 'hot', '热菜'));
+                        result.push(...selectRecipes(hotVeg, vegCount, 'hot', '热菜'));
+                    }
+                }
+
+                // 汤、主食
+                result.push(...selectRecipes(data.soup, counts.soup, 'soup', '汤'));
+                result.push(...selectRecipes(data.staple, counts.staple, 'staple', '主食'));
+            } else if (selectedType === '东南亚菜') {
+                const counts = stirCounts;
+                const cats = [
+                    {k:'cold', n:'凉菜', need: counts.cold},
+                    {k:'hot', n:'热菜', need: counts.hot},
+                    {k:'soup', n:'汤', need: counts.soup},
+                    {k:'staple', n:'主食', need: counts.staple}
+                ];
+
+                cats.forEach(cat => {
+                    result.push(...selectRecipes(data[cat.k], cat.need, cat.k, cat.n));
+                });
+            } else if (selectedType === '火锅' || selectedType === '烧烤') {
+                const counts = hotpotCounts;
+                const cats = [
+                    {k:'meat', n:'荤类', need: counts.meat},
+                    {k:'veg', n:'素类', need: counts.veg},
+                    {k:'staple', n:'主食', need: counts.stapleH}
+                ];
+
+                cats.forEach(cat => {
+                    result.push(...selectRecipes(data[cat.k], cat.need, cat.k, cat.n));
+                });
+            } else if (selectedType === '西餐') {
+                const counts = westernCounts;
+                const cats = [
+                    {k:'appetizer', n:'前菜', need: counts.appetizer},
+                    {k:'main', n:'主菜', need: counts.main},
+                    {k:'side', n:'小食', need: counts.side},
+                    {k:'dessert', n:'甜点', need: counts.dessert}
+                ];
+
+                cats.forEach(cat => {
+                    result.push(...selectRecipes(data[cat.k], cat.need, cat.k, cat.n));
+                });
+            }
+
+            // 输出
+            let html = '';
+            const groups = {};
+            result.forEach(r => {
+                if (!groups[r.catName]) groups[r.catName] = [];
+                groups[r.catName].push(r);
+            });
+
+            // 生成购菜清单
+            const ingredientMap = {}; // 食材名称 -> {amount, price, isMain}
+            const seasoningMap = {}; // 调料名称 -> {count}
+
+            result.forEach(r => {
+                r.i.forEach(item => {
+                    const name = item.n;
+                    const isSeasoning = ['盐','糖','酱油','醋','香油','胡椒','孜然','辣椒','花椒','蒜','姜','葱','料酒','蚝油','番茄酱','沙拉酱','黄油','橄榄油','椰浆','冬阴功酱','绿咖喱酱','红咖喱酱','沙嗲酱','鱼露','香茅','薄荷','欧芹','迷迭香','芝士','奶酪','奶油','牛奶','面粉','面包糠','淀粉','吉列丁','浓缩咖啡'].some(s => name.includes(s));
+
+                    if (isSeasoning) {
+                        if (!seasoningMap[name]) seasoningMap[name] = {count: 0};
+                        seasoningMap[name].count++;
+                    } else {
+                        if (!ingredientMap[name]) ingredientMap[name] = {amount: item.a, price: 0, isMain: ['肉','鸡','牛','羊','猪','虾','鱼','蛋','豆腐','菜','菜心','生菜','土豆','番茄','黄瓜','木耳','藕'].some(m => name.includes(m))};
+                        ingredientMap[name].price += item.p;
+                    }
+                });
+            });
+
+            // 排序：荤到素，由核心到次要
+            const sortedIngredients = Object.entries(ingredientMap)
+                .sort((a, b) => {
+                    if (a[1].isMain && !b[1].isMain) return -1;
+                    if (!a[1].isMain && b[1].isMain) return 1;
+                    return b[1].price - a[1].price;
+                });
+
+            Object.keys(groups).forEach((catName, idx) => {
+                const catEmoji = {
+                    '凉菜': '🥗', '热菜': '🍳', '汤': '🍲', '主食': '🍚',
+                    '荤类': '🥩', '素类': '🥬',
+                    '前菜': '🥗', '主菜': '🍽️', '小食': '🍟', '甜点': '🍰'
+                }[catName] || '';
+                html += `<h3 class="result-group-title">${catEmoji} ${catName}</h3>`;
+                html += groups[catName].map((r, i) => {
+                    const isAdded = window.myMenu.some(m => m.n === r.n);
+                    if (isAdded) {
+                        return `<div class="recipe-card" data-cat="${catName}" data-idx="${i}"><div class="recipe-info"><div class="recipe-header"><span class="recipe-name">${r.n}</span><button class="menu-action-btn added">✓</button></div><div class="recipe-meta">${r.t} · ${r.d}</div><div class="recipe-price">¥${r.i.reduce((s,i)=>s+i.p,0)}</div></div><div class="recipe-img-placeholder"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop" alt="菜品图片"></div></div>`;
+                    }
+                    return `<div class="recipe-card" data-cat="${catName}" data-idx="${i}"><div class="recipe-info"><div class="recipe-header"><span class="recipe-name">${r.n}</span><button class="menu-action-btn">+</button></div><div class="recipe-meta">${r.t} · ${r.d}</div><div class="recipe-price">¥${r.i.reduce((s,i)=>s+i.p,0)}</div></div><div class="recipe-img-placeholder"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop" alt="菜品图片"></div></div>`;
+                }).join('');
+                window.menuGroups[catName] = groups[catName];
+            });
+
+            // 显示警告（如果输入了食材但没有匹配）
+            if (noMatchWarning) {
+                html = `<div class="warning-msg">${noMatchWarning}</div>` + html;
+            }
+
+            // 只显示推荐菜单
+            document.getElementById('resultContent').innerHTML = html || '<p style="text-align:center;color:#999;padding:20px;">没有找到匹配的菜谱</p>';
+            document.getElementById('resultCard').classList.add('show');
+
+            // 绑定按钮事件
+            updateAllButtonStates();
+        }
+
+        // 页面切换函数
+        function goToMenuPage() {
+            if (!selectedType) { document.getElementById('typeError').classList.add('show'); return; }
+            generateMenu();
+            document.getElementById('inputPage').classList.remove('active');
+            document.getElementById('menuPage').classList.add('active');
+            document.getElementById('myMenuBar').style.display = 'flex';
+            updateMyMenuCount();
+        }
+
+        function goToInputPage() {
+            document.getElementById('menuPage').classList.remove('active');
+            document.getElementById('inputPage').classList.add('active');
+            document.getElementById('myMenuBar').style.display = 'none';
+        }
+
+        function refreshMenu() {
+            if (selectedType) {
+                // 重新生成菜单
+                window.menuGroups = {};
+                const usedRecipeNames = new Set(); // 用于去重，记录已选中的菜名
+                const ingStr = document.getElementById('ingredients').value;
+                const ingList = ingStr ? ingStr.split(',').map(s => s.trim()).filter(s => s) : [];
+                const data = recipes[selectedType];
+                let result = [];
+                let noMatchWarning = '';
+
+                function selectRecipes(pool, need, catKey, catName) {
+                    if (need <= 0 || !pool.length) return [];
+
+                    // 过滤掉已经选过的菜
+                    const availablePool = pool.filter(r => !usedRecipeNames.has(r.n));
+                    if (availablePool.length === 0) return [];
+
+                    const matched = availablePool.filter(r => ingList.some(ing => r.i.some(i => i.n.includes(ing))));
+                    const other = availablePool.filter(r => !matched.includes(r));
+                    if (ingList.length > 0 && matched.length === 0) {
+                        noMatchWarning = `未在${catName}中找到包含 [${ingList.join(', ')}] 的菜品，已推荐其他菜品`;
+                    }
+                    if (availablePool.length <= need) {
+                        availablePool.forEach(r => usedRecipeNames.add(r.n));
+                        return availablePool.map(r => ({...r, cat: catKey, catName}));
+                    }
+                    const matchedShuffled = matched.sort(() => 0.5 - Math.random());
+                    const otherShuffled = other.sort(() => 0.5 - Math.random());
+                    const selected = [...matchedShuffled];
+                    matched.forEach(r => usedRecipeNames.add(r.n));
+                    for (let i = 0; i < otherShuffled.length && selected.length < need; i++) {
+                        selected.push(otherShuffled[i]);
+                        usedRecipeNames.add(otherShuffled[i].n);
+                    }
+                    if (selected.length > need) {
+                        const shuffled = selected.sort(() => 0.5 - Math.random());
+                        return shuffled.slice(0, need).map(r => ({...r, cat: catKey, catName}));
+                    }
+                    return selected.map(r => ({...r, cat: catKey, catName}));
+                }
+
+                // 根据类型选择菜谱
+                if (selectedType === '中式炒菜' || selectedType === '东南亚菜') {
+                    const counts = stirCounts;
+                    result.push(...selectRecipes(data.cold, counts.cold, 'cold', '凉菜'));
+                    if (counts.hot > 0) {
+                        const hotMeat = data.hotMeat || [];
+                        const hotVeg = data.hot || [];
+                        if (counts.hot === 1) {
+                            result.push(...selectRecipes(hotMeat, 1, 'hot', '热菜'));
+                        } else {
+                            const meatCount = Math.ceil(counts.hot / 2);
+                            const vegCount = counts.hot - meatCount;
+                            result.push(...selectRecipes(hotMeat, meatCount, 'hot', '热菜'));
+                            result.push(...selectRecipes(hotVeg, vegCount, 'hot', '热菜'));
+                        }
+                    }
+                    result.push(...selectRecipes(data.soup, counts.soup, 'soup', '汤'));
+                    result.push(...selectRecipes(data.staple, counts.staple, 'staple', '主食'));
+                } else if (selectedType === '火锅' || selectedType === '烧烤') {
+                    const counts = hotpotCounts;
+                    result.push(...selectRecipes(data.meat, counts.meat, 'meat', '荤类'));
+                    result.push(...selectRecipes(data.veg, counts.veg, 'veg', '素类'));
+                    result.push(...selectRecipes(data.staple, counts.stapleH, 'staple', '主食'));
+                } else if (selectedType === '西餐') {
+                    const counts = westernCounts;
+                    const cats = [
+                        {k:'appetizer', n:'前菜', need: counts.appetizer},
+                        {k:'main', n:'主菜', need: counts.main},
+                        {k:'side', n:'小食', need: counts.side},
+                        {k:'dessert', n:'甜点', need: counts.dessert}
+                    ];
+                    cats.forEach(cat => {
+                        result.push(...selectRecipes(data[cat.k], cat.need, cat.k, cat.n));
+                    });
+                }
+
+                // 生成HTML
+                let html = '';
+                const groups = {};
+                result.forEach(r => {
+                    if (!groups[r.catName]) groups[r.catName] = [];
+                    groups[r.catName].push(r);
+                });
+
+                Object.keys(groups).forEach((catName, idx) => {
+                    const catEmoji = {
+                        '凉菜': '🥗', '热菜': '🍳', '汤': '🍲', '主食': '🍚',
+                        '荤类': '🥩', '素类': '🥬',
+                        '前菜': '🥗', '主菜': '🍽️', '小食': '🍟', '甜点': '🍰'
+                    }[catName] || '';
+                    html += `<h3 class="result-group-title">${catEmoji} ${catName}</h3>`;
+                    html += groups[catName].map((r, i) => {
+                        const isAdded = window.myMenu.some(m => m.n === r.n);
+                        if (isAdded) {
+                            return `<div class="recipe-card" data-cat="${catName}" data-idx="${i}"><div class="recipe-info"><div class="recipe-header"><span class="recipe-name">${r.n}</span><button class="menu-action-btn added">✓</button></div><div class="recipe-meta">${r.t} · ${r.d}</div><div class="recipe-price">¥${r.i.reduce((s,i)=>s+i.p,0)}</div></div><div class="recipe-img-placeholder"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop" alt="菜品图片"></div></div>`;
+                        }
+                        return `<div class="recipe-card" data-cat="${catName}" data-idx="${i}"><div class="recipe-info"><div class="recipe-header"><span class="recipe-name">${r.n}</span><button class="menu-action-btn">+</button></div><div class="recipe-meta">${r.t} · ${r.d}</div><div class="recipe-price">¥${r.i.reduce((s,i)=>s+i.p,0)}</div></div><div class="recipe-img-placeholder"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop" alt="菜品图片"></div></div>`;
+                    }).join('');
+                    window.menuGroups[catName] = groups[catName];
+                });
+
+                if (noMatchWarning) {
+                    html = `<div class="warning-msg">${noMatchWarning}</div>` + html;
+                }
+
+                document.getElementById('resultContent').innerHTML = html;
+
+                // 绑定按钮事件并更新状态
+                updateAllButtonStates();
+            }
+        }
+
+        // 更新所有按钮状态
+        function updateAllButtonStates() {
+            const typeMap = {
+                '凉菜': 'cold', '热菜': 'hot', '汤': 'soup', '主食': 'staple',
+                '荤类': 'meat', '素类': 'veg', '前菜': 'appetizer', '主菜': 'main', '小食': 'side', '甜点': 'dessert'
+            };
+
+            const allCards = document.querySelectorAll('#resultContent .recipe-card');
+            allCards.forEach((card) => {
+                const nameSpan = card.querySelector('.recipe-name');
+                const btn = card.querySelector('.menu-action-btn');
+                if (!nameSpan || !btn) return;
+
+                const name = nameSpan.textContent;
+                const catName = card.getAttribute('data-cat');
+                const isAdded = window.myMenu.some(m => m.n === name);
+
+                if (isAdded) {
+                    btn.textContent = '✓';
+                    btn.className = 'menu-action-btn added';
+                    btn.onclick = function(e) {
+                        e.stopPropagation();
+                        removeFromMenuByName(name);
+                    };
+                } else {
+                    const typeKey = typeMap[catName];
+                    const presetCountEl = typeKey ? document.getElementById(typeKey + 'Val') : null;
+                    const presetCount = presetCountEl ? parseInt(presetCountEl.textContent) : 0;
+                    const currentCount = window.myMenu.filter(m => {
+                        if (typeMap[m.catName] === typeKey) return true;
+                        if (m.cat === typeKey) return true;
+                        return false;
+                    }).length;
+
+                    if (presetCountEl && currentCount >= presetCount) {
+                        btn.textContent = '换成它';
+                        btn.className = 'menu-action-btn replace';
+                        btn.onclick = function(e) {
+                            e.stopPropagation();
+                            // 找到该菜在menuGroups中的位置
+                            let foundCatIdx = -1, foundItemIdx = -1;
+                            let i = 0;
+                            for (const cn in window.menuGroups) {
+                                const foundIdx = window.menuGroups[cn].findIndex(m => m.n === name);
+                                if (foundIdx >= 0) {
+                                    foundCatIdx = i;
+                                    foundItemIdx = foundIdx;
+                                    break;
+                                }
+                                i++;
+                            }
+                            // 找到当前类型已加入的菜
+                            const sameTypeItems = window.myMenu.filter(m => {
+                                if (typeMap[m.catName] === typeKey) return true;
+                                if (m.cat === typeKey) return true;
+                                return false;
+                            });
+                            // 如果只有一道，直接替换最先加入的
+                            if (sameTypeItems.length === 1) {
+                                const oldName = sameTypeItems[0].n;
+                                const oldIdx = window.myMenu.findIndex(m => m.n === oldName);
+                                if (oldIdx >= 0) {
+                                    // 找到新菜
+                                    const newRecipe = window.menuGroups[catName].find(m => m.n === name);
+                                    if (newRecipe) {
+                                        window.myMenu.splice(oldIdx, 1, newRecipe);
+                                        updateAllButtonStates();
+                                        updateMyMenuCount();
+                                        return;
+                                    }
+                                }
+                            }
+                            // 多于一道时打开弹窗
+                            openSwapModal(name, catName, foundCatIdx, foundItemIdx);
+                        };
+                    } else {
+                        btn.textContent = '+';
+                        btn.className = 'menu-action-btn';
+                        btn.onclick = function(e) {
+                            e.stopPropagation();
+                            addToMenuByName(name);
+                        };
+                    }
+                }
+            });
+        }
+
+        // 通过菜名添加到菜单
+        function addToMenuByName(name) {
+            for (const catName in window.menuGroups) {
+                const recipe = window.menuGroups[catName].find(m => m.n === name);
+                if (recipe) {
+                    if (window.myMenu.some(m => m.n === recipe.n)) return;
+                    window.myMenu.push(recipe);
+                    updateAllButtonStates();
+                    updateMyMenuCount();
+                    return;
+                }
+            }
+        }
+
+        // 通过菜名从菜单移除
+        function removeFromMenuByName(name) {
+            const idx = window.myMenu.findIndex(m => m.n === name);
+            if (idx >= 0) {
+                window.myMenu.splice(idx, 1);
+                updateAllButtonStates();
+                updateMyMenuCount();
+            }
+        }
+
+        function openMyMenuPage() {
+            renderMyMenuDetail();
+            document.getElementById('myMenuPage').classList.add('show');
+            document.getElementById('myMenuOverlay').classList.add('show');
+        }
+
+        function closeMyMenuPage() {
+            document.getElementById('myMenuPage').classList.remove('show');
+            document.getElementById('myMenuOverlay').classList.remove('show');
+        }
+
+        function updateMyMenuCount() {
+            const count = window.myMenu ? window.myMenu.length : 0;
+            document.getElementById('myMenuCount').textContent = `(${count})`;
+        }
+
+        // 全部加入
+        function addAllToMenu() {
+            if (!window.menuGroups || Object.keys(window.menuGroups).length === 0) return;
+
+            // 清空myMenu
+            window.myMenu = [];
+
+            // 添加所有当前推荐的菜
+            for (const catName in window.menuGroups) {
+                const recipes = window.menuGroups[catName];
+                recipes.forEach(recipe => {
+                    window.myMenu.push(recipe);
+                });
+            }
+
+            // 更新界面
+            updateAllButtonStates();
+            updateMyMenuCount();
+        }
+
+        // 渲染我的菜单详情页
+        function renderMyMenuDetail() {
+            if (!window.myMenu || window.myMenu.length === 0) {
+                document.getElementById('myMenuContent').innerHTML = '<p style="text-align:center;color:#999;padding:40px 20px;">还没有添加任何菜品</p>';
+                return;
+            }
+
+            // 按类型分组
+            const groups = {};
+            window.myMenu.forEach(r => {
+                const catName = r.catName || '其他';
+                if (!groups[catName]) groups[catName] = [];
+                groups[catName].push(r);
+            });
+
+            // 分类显示菜品
+            const typeEmoji = {
+                '凉菜': '🥗', '热菜': '🍳', '汤': '🍲', '主食': '🍚',
+                '荤类': '🥩', '素类': '🥬', '前菜': '🥗', '主菜': '🍽️', '小食': '🍟', '甜点': '🍰'
+            };
+
+            let menuHtml = '';
+            for (const catName in groups) {
+                menuHtml += `<h3 class="result-group-title">${typeEmoji[catName] || ''} ${catName}</h3>`;
+                menuHtml += `<div class="my-menu-grid">`;
+                groups[catName].forEach((r, idx) => {
+                    // 找到在myMenu中的实际索引
+                    const actualIdx = window.myMenu.findIndex(m => m.n === r.n);
+                    menuHtml += `<div class="my-menu-grid-item">
+                        <button class="my-menu-item-remove" onclick="removeFromMenu(${actualIdx})">−</button>
+                        <div class="my-menu-item-name">${r.n}</div>
+                        <div class="my-menu-item-meta">${r.t}</div>
+                    </div>`;
+                });
+                menuHtml += `</div>`;
+            }
+
+            // 计算备菜清单和调料清单
+            const ingredientMap = {};
+            const seasoningMap = {};
+
+            window.myMenu.forEach(r => {
+                r.i.forEach(item => {
+                    const name = item.n;
+                    const isSeasoning = ['盐','糖','酱油','醋','香油','胡椒','孜然','辣椒','花椒','蒜','姜','葱','料酒','蚝油','番茄酱','沙拉酱','黄油','橄榄油','椰浆','冬阴功酱','绿咖喱酱','红咖喱酱','沙嗲酱','鱼露','香茅','薄荷','欧芹','迷迭香','芝士','奶酪','奶油','牛奶','面粉','面包糠','淀粉','吉列丁','浓缩咖啡'].some(s => name.includes(s));
+
+                    if (isSeasoning) {
+                        if (!seasoningMap[name]) seasoningMap[name] = {count: 0};
+                        seasoningMap[name].count++;
+                    } else {
+                        if (!ingredientMap[name]) ingredientMap[name] = {amount: item.a, price: 0, isMain: ['肉','鸡','牛','羊','猪','虾','鱼','蛋','豆腐','菜','菜心','生菜','土豆','番茄','黄瓜','木耳','藕'].some(m => name.includes(m))};
+                        ingredientMap[name].price += item.p;
+                    }
+                });
+            });
+
+            const sortedIngredients = Object.entries(ingredientMap)
+                .sort((a, b) => {
+                    if (a[1].isMain && !b[1].isMain) return -1;
+                    if (!a[1].isMain && b[1].isMain) return 1;
+                    return b[1].price - a[1].price;
+                });
+            const sortedSeasonings = Object.entries(seasoningMap)
+                .sort((a, b) => b[1].count - a[1].count);
+            const totalAmount = sortedIngredients.reduce((sum, [_, data]) => sum + data.price, 0);
+
+            // 预估总金额（文本样式，放在顶部）
+            let totalHtml = '';
+            if (sortedIngredients.length > 0) {
+                totalHtml = `<div class="my-menu-total">预估总金额：<span>¥${totalAmount.toFixed(1)}</span></div>`;
+            }
+
+            document.getElementById('myMenuContent').innerHTML = totalHtml + menuHtml;
+            updateMyMenuCount();
+        }
+
+        // 加入菜单
+        function addToMenu(catIdx, itemIdx) {
+            const catName = Object.keys(window.menuGroups)[catIdx];
+            const recipe = window.menuGroups[catName][itemIdx];
+
+            // 检查是否已存在
+            if (window.myMenu.some(m => m.n === recipe.n)) {
+                return;
+            }
+
+            // 判断菜品类型和预设数量
+            const typeMap = {
+                '凉菜': 'cold',
+                '热菜': 'hot',
+                '汤': 'soup',
+                '主食': 'staple',
+                '荤类': 'meat',
+                '素类': 'veg',
+                '前菜': 'appetizer',
+                '主菜': 'main',
+                '小食': 'side',
+                '甜点': 'dessert'
+            };
+
+            let typeKey = typeMap[catName];
+            let presetCountEl = typeKey ? document.getElementById(typeKey + 'Val') : null;
+            let presetCount = presetCountEl ? parseInt(presetCountEl.textContent) : 0;
+
+            // 如果没有找到预设数量，尝试使用 recipe.cat (火锅/烧烤类型)
+            if (!presetCountEl && recipe.cat) {
+                typeKey = recipe.cat;
+                presetCountEl = document.getElementById(typeKey + 'Val');
+                presetCount = presetCountEl ? parseInt(presetCountEl.textContent) : 0;
+            }
+
+            // 统计当前已添加的该类型数量
+            let currentCount = 0;
+            if (typeKey) {
+                currentCount = window.myMenu.filter(m => {
+                    if (typeMap[m.catName] === typeKey) return true;
+                    if (m.cat === typeKey) return true;
+                    return false;
+                }).length;
+            }
+
+            if (presetCountEl && currentCount >= presetCount) {
+                // 超出预设数量，显示确认弹窗
+                pendingRecipe = recipe;
+                showConfirmModal(catName, typeKey);
+            } else {
+                // 未超出，直接添加
+                addRecipeToMenu(recipe);
+            }
+        }
+
+        // 添加菜品到菜单（实际执行添加的函数）
+        function addRecipeToMenu(recipe) {
+            window.myMenu.push(recipe);
+            // 更新按钮状态
+            updateAllButtonStates();
+            updateMyMenuCount();
+        }
+
+        // 从菜单移除
+        function removeFromMenu(idx) {
+            if (idx < 0 || idx >= window.myMenu.length) return;
+            window.myMenu.splice(idx, 1);
+            // 重新渲染我的菜单弹层
+            renderMyMenuDetail();
+            // 更新推荐菜单中的按钮状态
+            updateAllButtonStates();
+            updateMyMenuCount();
+        }
+
+        function showDetail(catIdx, itemIdx) {
+            const catName = Object.keys(window.menuGroups)[catIdx];
+            const r = window.menuGroups[catName][itemIdx];
+            const total = r.i.reduce((s,i)=>s+i.p,0);
+            document.getElementById('modalContent').innerHTML = `
+                <button class="modal-close" onclick="closeDetail()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+                <div class="modal-section">
+                    <h2>${r.n}</h2>
+                    <div class="info-row">
+                        <span>${r.t}</span>
+                        <span>${r.d}</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <h3 class="modal-title">食材清单</h3>
+                    ${r.i.map(i=>`<div class="modal-row"><span>${i.n} ${i.a}</span><span>¥${i.p}</span></div>`).join('')}
+                    <div class="modal-row total"><span>合计</span><span>¥${total}</span></div>
+                </div>
+                <div class="modal-section">
+                    <h3 class="modal-title">制作步骤</h3>
+                    ${r.s.map((st,i)=>`<div class="modal-step"><span class="step-num">${i+1}</span><span>${st}</span></div>`).join('')}
+                </div>`;
+            document.getElementById('detailModal').classList.add('show');
+        }
+        function closeDetail() { document.getElementById('detailModal').classList.remove('show'); }
+        document.getElementById('detailModal').addEventListener('click', e => { if(e.target.id==='detailModal') closeDetail(); });
+
+        // 换菜弹窗相关函数
+        function openSwapModal(recipeName, catName, catIdx, itemIdx) {
+            const typeMap = {
+                '凉菜': 'cold', '热菜': 'hot', '汤': 'soup', '主食': 'staple',
+                '荤类': 'meat', '素类': 'veg', '前菜': 'appetizer', '主菜': 'main', '小食': 'side', '甜点': 'dessert'
+            };
+            const typeKey = typeMap[catName];
+
+            // 获取同类型已加入的菜
+            const sameTypeMenu = window.myMenu.filter(m => {
+                // 检查 m.catName（字符串）和 typeKey 是否匹配
+                if (m.catName === catName) return true;
+                // 检查 m.cat 和 typeKey 是否匹配
+                if (m.cat === typeKey) return true;
+                // 检查 typeMap[m.catName] 是否等于 typeKey
+                if (typeMap[m.catName] === typeKey) return true;
+                return false;
+            });
+
+            // 生成换菜列表
+            let swapListHtml = '';
+            if (sameTypeMenu.length > 0) {
+                sameTypeMenu.forEach((r, idx) => {
+                    swapListHtml += `<div class="swap-item" onclick="selectSwapItem(${idx})" data-idx="${idx}">
+                        <div class="swap-item-name">${r.n}</div>
+                        <div class="swap-item-meta">${r.t}</div>
+                    </div>`;
+                });
+            } else {
+                swapListHtml = '<p style="text-align:center;color:#999;padding:20px;">没有同类型的菜可以替换</p>';
+            }
+
+            document.getElementById('swapList').innerHTML = swapListHtml;
+            selectedSwapIndex = -1;
+            document.getElementById('swapConfirmBtn').disabled = true;
+
+            // 保存待换入的菜信息
+            pendingSwapRecipe = { name: recipeName, catName, cat: typeKey, catKey: typeKey };
+            pendingSwapTypeKey = typeKey;
+
+            document.getElementById('swapModal').classList.add('show');
+        }
+
+        function selectSwapItem(idx) {
+            // 取消之前的选择
+            document.querySelectorAll('.swap-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            // 选中当前
+            const items = document.querySelectorAll('.swap-item');
+            if (items[idx]) {
+                items[idx].classList.add('selected');
+                selectedSwapIndex = idx;
+                document.getElementById('swapConfirmBtn').disabled = false;
+            }
+        }
+
+        function closeSwapModal() {
+            document.getElementById('swapModal').classList.remove('show');
+            pendingSwapRecipe = null;
+            pendingSwapTypeKey = null;
+            selectedSwapIndex = -1;
+        }
+
+        function confirmSwap() {
+            if (selectedSwapIndex < 0) return;
+
+            const typeMap = {
+                '凉菜': 'cold', '热菜': 'hot', '汤': 'soup', '主食': 'staple',
+                '荤类': 'meat', '素类': 'veg', '前菜': 'appetizer', '主菜': 'main', '小食': 'side', '甜点': 'dessert'
+            };
+            const typeKey = typeMap[pendingSwapRecipe.catName];
+
+            // 获取同类型已加入的菜
+            const sameTypeMenu = window.myMenu.filter(m => {
+                if (typeMap[m.catName] === typeKey) return true;
+                if (m.cat === typeKey) return true;
+                return false;
+            });
+
+            // 找到要换掉的菜的索引（在原myMenu中的索引）
+            const removeIndex = window.myMenu.findIndex(m => m.n === sameTypeMenu[selectedSwapIndex].n);
+            if (removeIndex < 0) return;
+
+            // 移除旧菜，加入新菜
+            window.myMenu.splice(removeIndex, 1);
+
+            // 找到新菜的完整信息
+            let newRecipe = null;
+            for (const catName in window.menuGroups) {
+                const found = window.menuGroups[catName].find(m => m.n === pendingSwapRecipe.name);
+                if (found) {
+                    newRecipe = found;
+                    break;
+                }
+            }
+
+            if (newRecipe) {
+                window.myMenu.push(newRecipe);
+            }
+
+            closeSwapModal();
+            // 更新按钮状态
+            updateAllButtonStates();
+            updateMyMenuCount();
+        }
+
+        // 第四页：备菜清单页面
+        function goToPrepPage() {
+            if (!window.myMenu || window.myMenu.length === 0) {
+                alert('请先添加菜品到我的菜单');
+                return;
+            }
+            renderPrepPage();
+            document.getElementById('prepPage').classList.add('show');
+        }
+
+        function closePrepPage() {
+            document.getElementById('prepPage').classList.remove('show');
+        }
+
+        function renderPrepPage() {
+            // 计算购菜清单和调料清单
+            const ingredientMap = {};
+            const seasoningMap = {};
+
+            window.myMenu.forEach(r => {
+                r.i.forEach(item => {
+                    const name = item.n;
+                    const isSeasoning = ['盐','糖','酱油','醋','香油','胡椒','孜然','辣椒','花椒','蒜','姜','葱','料酒','蚝油','番茄酱','沙拉酱','黄油','橄榄油','椰浆','冬阴功酱','绿咖喱酱','红咖喱酱','沙嗲酱','鱼露','香茅','薄荷','欧芹','迷迭香','芝士','奶酪','奶油','牛奶','面粉','面包糠','淀粉','吉列丁','浓缩咖啡'].some(s => name.includes(s));
+
+                    if (isSeasoning) {
+                        if (!seasoningMap[name]) seasoningMap[name] = {count: 0};
+                        seasoningMap[name].count++;
+                    } else {
+                        if (!ingredientMap[name]) ingredientMap[name] = {amount: item.a, price: 0, isMain: ['肉','鸡','牛','羊','猪','虾','鱼','蛋','豆腐','菜','菜心','生菜','土豆','番茄','黄瓜','木耳','藕'].some(m => name.includes(m))};
+                        ingredientMap[name].price += item.p;
+                    }
+                });
+            });
+
+            const sortedIngredients = Object.entries(ingredientMap)
+                .sort((a, b) => {
+                    if (a[1].isMain && !b[1].isMain) return -1;
+                    if (!a[1].isMain && b[1].isMain) return 1;
+                    return b[1].price - a[1].price;
+                });
+            const sortedSeasonings = Object.entries(seasoningMap)
+                .sort((a, b) => b[1].count - a[1].count);
+            const totalAmount = sortedIngredients.reduce((sum, [_, data]) => sum + data.price, 0);
+
+            // 购菜清单
+            let shopHtml = '';
+            if (sortedIngredients.length > 0) {
+                shopHtml = `<h3 class="result-group-title">🛒 购菜清单</h3>`;
+                shopHtml += `<div class="detail-shop-list">`;
+                sortedIngredients.forEach(([name, data]) => {
+                    shopHtml += `<div class="prep-shop-item"><span class="prep-shop-name">${name}</span><div class="prep-shop-right"><span class="prep-shop-amount">${data.amount}</span><span class="prep-shop-price">¥${data.price.toFixed(1)}</span></div></div>`;
+                });
+                shopHtml += `</div>`;
+            }
+
+            // 调料清单
+            let seasoningHtml = '';
+            if (sortedSeasonings.length > 0) {
+                seasoningHtml = `<h3 class="result-group-title">🧂 调料清单</h3>`;
+                seasoningHtml += `<div style="margin-bottom:12px;">`;
+                sortedSeasonings.forEach(([name, data]) => {
+                    seasoningHtml += `<span class="prep-seasoning-tag">${name}</span>`;
+                });
+                seasoningHtml += `</div>`;
+            }
+
+            // 预估总金额（放在调料清单下面）
+            let totalHtml = '';
+            if (sortedIngredients.length > 0) {
+                totalHtml = `<div class="my-menu-total">预估总金额：<span>¥${totalAmount.toFixed(1)}</span></div>`;
+            }
+
+            document.getElementById('prepContent').innerHTML = shopHtml + seasoningHtml + totalHtml;
+            document.getElementById('prepTotal').innerHTML = '';
+        }
+
+        document.getElementById('swapModal').addEventListener('click', e => {
+            if(e.target.id === 'swapModal') closeSwapModal();
+        });
+    </script>
+
+    <!-- 换菜弹窗 -->
+    <div class="swap-modal" id="swapModal">
+        <div class="swap-content">
+            <div class="swap-header">
+                <button class="swap-close" onclick="closeSwapModal()">×</button>
+            </div>
+            <div class="swap-body">
+                <div class="swap-tip">点击选择要换掉的菜</div>
+                <div id="swapList"></div>
+            </div>
+            <div class="swap-btns">
+                <button class="swap-btn cancel" onclick="closeSwapModal()">取消</button>
+                <button class="swap-btn confirm" id="swapConfirmBtn" onclick="confirmSwap()" disabled>确定</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
